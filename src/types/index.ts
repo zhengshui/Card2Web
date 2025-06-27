@@ -17,13 +17,3 @@ export interface GeneratedWebsite {
   preview: string;
 }
 
-export interface OCRResult {
-  text: string;
-  confidence: number;
-  boundingBox?: {
-    x: number;
-    y: number;
-    width: number;
-    height: number;
-  };
-}

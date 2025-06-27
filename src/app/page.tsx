@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from 'react'
 import CardUploader from '@/components/upload/CardUploader'
-import RecognitionModeToggle from '@/components/config/RecognitionModeToggle'
 import { useOCR } from '@/hooks/useOCR'
 import { useWebsiteGenerator } from '@/hooks/useWebsiteGenerator'
 import WebsiteGenerationAnimation from '@/components/generation/WebsiteGenerationAnimation'
@@ -17,7 +16,7 @@ export default function Home() {
   const [showAnimation, setShowAnimation] = useState(false)
   const [editableCard, setEditableCard] = useState<Partial<BusinessCard> | null>(null)
   const [showExportDialog, setShowExportDialog] = useState(false)
-  const { isLoading, error, businessCard, processImage, mode, setMode } = useOCR()
+  const { isLoading, error, businessCard, processImage } = useOCR()
   const { 
     isGenerating, 
     error: generateError, 
@@ -154,37 +153,7 @@ export default function Home() {
                     </p>
                   </div>
 
-                  <div className="mb-8">
-                    <RecognitionModeToggle 
-                      mode={mode} 
-                      onModeChange={setMode}
-                      disabled={isLoading}
-                    />
-                  </div>
-
                   <CardUploader onFileSelect={handleFileSelect} />
-
-                  {mode === 'ai-vision' && (
-                    <div className="mt-6 p-6 bg-primary-50/50 border border-primary-100 rounded-2xl">
-                      <div className="flex items-start space-x-4">
-                        <div className="flex-shrink-0">
-                          <div className="w-10 h-10 bg-primary-100 rounded-xl flex items-center justify-center">
-                            <svg className="w-5 h-5 text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                            </svg>
-                          </div>
-                        </div>
-                        <div>
-                          <h4 className="font-semibold text-primary-900 mb-2">AI 智能识别模式</h4>
-                          <p className="text-primary-700 text-sm leading-relaxed">
-                            采用 OpenAI 最新视觉模型，识别准确率达 95%+，支持中英文混合识别，
-                            <br />
-                            处理速度比传统 OCR 快 5 倍。需要配置 OpenAI API 密钥。
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  )}
                 </div>
               )}
 
@@ -259,10 +228,10 @@ export default function Home() {
                       </div>
                       <div className="text-center">
                         <p className="text-neutral-600 font-medium">
-                          正在使用 {mode === 'ai-vision' ? 'AI 视觉模型' : 'OCR 技术'} 识别名片信息
+                          正在使用 AI 视觉模型 识别名片信息
                         </p>
                         <p className="text-sm text-neutral-500 mt-1">
-                          预计需要 {mode === 'ai-vision' ? '2-3' : '10-15'} 秒钟
+                          预计需要 2-3 秒钟
                         </p>
                       </div>
                     </div>

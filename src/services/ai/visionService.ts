@@ -84,23 +84,8 @@ export class VisionService {
         throw new Error('AI 响应为空')
       }
 
-      // 解析JSON响应
-      const result = this.parseVisionResponse(response)
-      
-      // 提取Logo（如果需要的话，可以从原图中提取）
-      let logo: string | undefined
-      try {
-        const { logoService } = await import('@/services/logo/logoService')
-        const extractedLogo = await logoService.extractLogo(imageFile)
-        logo = extractedLogo || undefined
-      } catch (error) {
-        console.warn('Logo 提取失败:', error)
-      }
-
-      return {
-        ...result,
-        logo: logo || undefined
-      }
+      // todo 提取Logo（ai提取）
+      return this.parseVisionResponse(response)
     } catch (error) {
       console.error('AI Vision 识别失败:', error)
       throw new Error('AI Vision 识别失败，请检查图片质量或网络连接')
