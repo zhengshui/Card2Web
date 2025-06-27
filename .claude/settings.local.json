@@ -28,7 +28,8 @@
       "Bash(npx next build:*)",
       "Bash(mv:*)",
       "Bash(node:*)",
-      "Bash(find:*)"
+      "Bash(find:*)",
+      "WebFetch(domain:vercel.com)"
     ],
     "deny": []
   },

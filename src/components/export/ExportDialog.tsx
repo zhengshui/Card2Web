@@ -1,8 +1,9 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useExport } from '@/hooks/useExport'
 import type { GeneratedWebsite, BusinessCard } from '@/types'
+import type { VercelDeploymentResponse } from '@/services/vercel/vercelService'
 
 interface ExportDialogProps {
   isOpen: boolean
@@ -18,10 +19,70 @@ export default function ExportDialog({
   businessCard 
 }: ExportDialogProps) {
   const [selectedFormat, setSelectedFormat] = useState('zip')
-  const { isExporting, error, exportHTML, exportZIP, exportPDF, getSupportedFormats } = useExport()
+  const [vercelToken, setVercelToken] = useState('')
+  const [showTokenInput, setShowTokenInput] = useState(false)
+  const [isTokenValid, setIsTokenValid] = useState(false)
+  const [deploymentResult, setDeploymentResult] = useState<VercelDeploymentResponse | null>(null)
+  const [isCheckingToken, setIsCheckingToken] = useState(false)
+  
+  const { 
+    isExporting, 
+    error, 
+    exportHTML, 
+    exportZIP, 
+    exportPDF, 
+    publishToVercel,
+    validateVercelToken,
+    setVercelToken: saveVercelToken,
+    clearVercelAuth,
+    getSupportedFormats 
+  } = useExport()
 
   const formats = getSupportedFormats()
   const companyName = businessCard.companyName || 'website'
+
+  // 检查 Vercel token 状态
+  useEffect(() => {
+    if (selectedFormat === 'vercel') {
+      checkTokenStatus()
+    }
+  }, [selectedFormat])
+
+  const checkTokenStatus = async () => {
+    setIsCheckingToken(true)
+    try {
+      const status = await validateVercelToken()
+      setIsTokenValid(status.isAuthenticated)
+      setShowTokenInput(!status.isAuthenticated)
+    } catch (error) {
+      setIsTokenValid(false)
+      setShowTokenInput(true)
+    } finally {
+      setIsCheckingToken(false)
+    }
+  }
+
+  const handleTokenValidation = async () => {
+    if (!vercelToken.trim()) return
+    
+    setIsCheckingToken(true)
+    try {
+      const status = await validateVercelToken(vercelToken)
+      if (status.isAuthenticated) {
+        saveVercelToken(vercelToken)
+        setIsTokenValid(true)
+        setShowTokenInput(false)
+      } else {
+        setIsTokenValid(false)
+        alert('Token 验证失败，请检查是否正确')
+      }
+    } catch (error) {
+      setIsTokenValid(false)
+      alert('Token 验证失败，请检查网络连接')
+    } finally {
+      setIsCheckingToken(false)
+    }
+  }
 
   const handleExport = async () => {
     try {
@@ -35,11 +96,19 @@ export default function ExportDialog({
         case 'pdf':
           await exportPDF(website, companyName)
           break
+        case 'vercel':
+          if (!isTokenValid) {
+            alert('请先设置有效的 Vercel 访问令牌')
+            return
+          }
+          const deployment = await publishToVercel(website, businessCard, companyName)
+          setDeploymentResult(deployment)
+          break
         default:
           throw new Error('不支持的导出格式')
       }
       
-      if (!error) {
+      if (!error && selectedFormat !== 'vercel') {
         onClose()
       }
     } catch (err) {
@@ -105,14 +174,111 @@ export default function ExportDialog({
             </div>
           )}
 
-          <div className="bg-gray-50 rounded-lg p-3 mb-4">
-            <div className="text-sm text-gray-600">
-              <strong>导出预览：</strong>
+          {selectedFormat === 'vercel' && (
+            <div className="space-y-4 mb-4">
+              <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+                <div className="text-sm text-green-800">
+                  <strong>一键发布！</strong> 将网站直接发布到 Vercel 并获得在线访问地址。
+                </div>
+              </div>
+              
+              {showTokenInput && (
+                <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                  <div className="text-sm font-medium text-gray-700 mb-2">
+                    设置 Vercel 访问令牌
+                  </div>
+                  <div className="text-xs text-gray-500 mb-3">
+                    请前往 <a href="https://vercel.com/account/tokens" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">Vercel 设置页面</a> 创建新的访问令牌
+                  </div>
+                  <div className="flex space-x-2">
+                    <input
+                      type="password"
+                      value={vercelToken}
+                      onChange={(e) => setVercelToken(e.target.value)}
+                      placeholder="输入您的 Vercel 访问令牌"
+                      className="flex-1 px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    />
+                    <button
+                      onClick={handleTokenValidation}
+                      disabled={isCheckingToken || !vercelToken.trim()}
+                      className="px-4 py-2 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {isCheckingToken ? '验证中...' : '验证'}
+                    </button>
+                  </div>
+                </div>
+              )}
+              
+              {isTokenValid && !showTokenInput && (
+                <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+                  <div className="flex items-center justify-between">
+                    <div className="text-sm text-green-800">
+                      ✅ Vercel 令牌已设置并验证
+                    </div>
+                    <button
+                      onClick={() => {
+                        clearVercelAuth()
+                        setIsTokenValid(false)
+                        setShowTokenInput(true)
+                      }}
+                      className="text-xs text-green-600 hover:text-green-800 underline"
+                    >
+                      更换令牌
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
-            <div className="text-xs text-gray-500 mt-1">
-              文件名：{companyName}-{selectedFormat === 'zip' ? 'website.zip' : selectedFormat === 'pdf' ? 'website.pdf' : 'website.html'}
+          )}
+
+          {!deploymentResult && (
+            <div className="bg-gray-50 rounded-lg p-3 mb-4">
+              <div className="text-sm text-gray-600">
+                <strong>导出预览：</strong>
+              </div>
+              <div className="text-xs text-gray-500 mt-1">
+                {selectedFormat === 'vercel' 
+                  ? `项目名：${companyName.toLowerCase()}-website` 
+                  : `文件名：${companyName}-${selectedFormat === 'zip' ? 'website.zip' : selectedFormat === 'pdf' ? 'website.pdf' : 'website.html'}`
+                }
+              </div>
             </div>
-          </div>
+          )}
+
+          {deploymentResult && (
+            <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-4">
+              <div className="text-sm font-medium text-green-800 mb-2">
+                🎉 网站发布成功！
+              </div>
+              <div className="text-sm text-green-700 mb-3">
+                您的网站已成功发布到 Vercel，可以通过以下地址访问：
+              </div>
+              <div className="bg-white border border-green-200 rounded p-2 mb-3">
+                <div className="text-sm font-mono text-green-800">
+                  https://{deploymentResult.url}
+                </div>
+              </div>
+              <div className="flex space-x-2">
+                <a
+                  href={`https://${deploymentResult.url}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="px-3 py-1 bg-green-600 text-white text-sm rounded hover:bg-green-700 transition-colors"
+                >
+                  访问网站
+                </a>
+                <button
+                  onClick={() => {
+                    navigator.clipboard.writeText(`https://${deploymentResult.url}`)
+                    alert('网址已复制到剪贴板')
+                  }}
+                  className="px-3 py-1 bg-gray-600 text-white text-sm rounded hover:bg-gray-700 transition-colors"
+                >
+                  复制网址
+                </button>
+              </div>
+            </div>
+          )}
 
           {error && (
             <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-4">
@@ -129,21 +295,26 @@ export default function ExportDialog({
             disabled={isExporting}
             className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 border border-gray-300 rounded-md hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 disabled:opacity-50"
           >
-            取消
+            {deploymentResult ? '完成' : '取消'}
           </button>
-          <button
-            onClick={handleExport}
-            disabled={isExporting}
-            className="px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 flex items-center"
-          >
-            {isExporting && (
-              <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-              </svg>
-            )}
-            {isExporting ? '导出中...' : '开始导出'}
-          </button>
+          {!deploymentResult && (
+            <button
+              onClick={handleExport}
+              disabled={isExporting || (selectedFormat === 'vercel' && !isTokenValid)}
+              className="px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 flex items-center"
+            >
+              {isExporting && (
+                <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+              )}
+              {isExporting 
+                ? (selectedFormat === 'vercel' ? '发布中...' : '导出中...') 
+                : (selectedFormat === 'vercel' ? '发布到 Vercel' : '开始导出')
+              }
+            </button>
+          )}
         </div>
       </div>
     </div>
