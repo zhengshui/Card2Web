@@ -8,6 +8,7 @@ interface TypewriterEffectProps {
   onComplete?: () => void
   onSkip?: () => void
   className?: string
+  realTime?: boolean
 }
 
 export default function TypewriterEffect({ 
@@ -15,7 +16,8 @@ export default function TypewriterEffect({
   speed = 30, 
   onComplete, 
   onSkip,
-  className = '' 
+  className = '',
+  realTime = false
 }: TypewriterEffectProps) {
   const [displayedContent, setDisplayedContent] = useState('')
   const [currentIndex, setCurrentIndex] = useState(0)
@@ -33,8 +35,17 @@ export default function TypewriterEffect({
     }
   }, [displayedContent])
 
+  // 实时模式：直接显示内容
   useEffect(() => {
-    if (currentIndex < content.length && !isPaused) {
+    if (realTime) {
+      setDisplayedContent(content)
+      setCurrentIndex(content.length)
+      return
+    }
+  }, [content, realTime])
+
+  useEffect(() => {
+    if (!realTime && currentIndex < content.length && !isPaused) {
       intervalRef.current = setTimeout(() => {
         setDisplayedContent(prev => prev + content[currentIndex])
         setCurrentIndex(prev => prev + 1)
@@ -49,7 +60,7 @@ export default function TypewriterEffect({
         clearTimeout(intervalRef.current)
       }
     }
-  }, [currentIndex, content, currentSpeed, onComplete, isPaused, isComplete])
+  }, [currentIndex, content, currentSpeed, onComplete, isPaused, isComplete, realTime])
 
   const handleSkip = () => {
     setDisplayedContent(content)
@@ -84,7 +95,7 @@ export default function TypewriterEffect({
             <span className="text-neutral-300 text-sm font-medium">website.html</span>
             <div className="flex items-center space-x-2 text-xs text-neutral-400">
               <div className="w-2 h-2 bg-success-500 rounded-full animate-pulse"></div>
-              <span>AI 正在编写代码</span>
+              <span>{realTime ? 'AI 实时生成中' : 'AI 正在编写代码'}</span>
             </div>
           </div>
           
@@ -146,7 +157,7 @@ export default function TypewriterEffect({
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
             </svg>
             <span>
-              {isComplete ? '代码生成完成！' : `AI 正在编写代码... ${Math.round((currentIndex / content.length) * 100)}%`}
+              {isComplete || realTime ? '代码生成完成！' : `AI 正在编写代码... ${Math.round((currentIndex / content.length) * 100)}%`}
             </span>
           </div>
           <div className="text-xs text-neutral-500">
@@ -157,7 +168,7 @@ export default function TypewriterEffect({
         <div className="bg-neutral-200 rounded-full h-2 overflow-hidden">
           <div 
             className="bg-primary-500 h-2 rounded-full transition-all duration-300 shadow-sm"
-            style={{ width: `${(currentIndex / content.length) * 100}%` }}
+            style={{ width: `${realTime ? 100 : (currentIndex / content.length) * 100}%` }}
           />
         </div>
       </div>

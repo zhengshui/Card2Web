@@ -5,12 +5,14 @@ import TypewriterEffect from '@/components/animation/TypewriterEffect'
 
 interface WebsiteGenerationAnimationProps {
   htmlContent: string
+  streamingContent?: string
   isGenerating: boolean
   onAnimationComplete: () => void
 }
 
 export default function WebsiteGenerationAnimation({
   htmlContent,
+  streamingContent,
   isGenerating,
   onAnimationComplete
 }: WebsiteGenerationAnimationProps) {
@@ -18,10 +20,18 @@ export default function WebsiteGenerationAnimation({
   const [displayHtml, setDisplayHtml] = useState('')
 
   useEffect(() => {
-    if (!isGenerating && htmlContent && currentPhase === 'generating') {
+    if (streamingContent && currentPhase === 'generating') {
+      setCurrentPhase('typing')
+    } else if (!isGenerating && htmlContent && currentPhase === 'generating') {
       setCurrentPhase('typing')
     }
-  }, [isGenerating, htmlContent, currentPhase])
+  }, [isGenerating, htmlContent, streamingContent, currentPhase])
+
+  useEffect(() => {
+    if (streamingContent && currentPhase === 'typing') {
+      setDisplayHtml(streamingContent)
+    }
+  }, [streamingContent, currentPhase])
 
   const handleTypingComplete = () => {
     setCurrentPhase('complete')
@@ -83,11 +93,12 @@ export default function WebsiteGenerationAnimation({
               </div>
             </div>
             <TypewriterEffect
-              content={htmlContent}
-              speed={15}
+              content={streamingContent || htmlContent}
+              speed={streamingContent ? 0 : 15} // 流式显示时不需要打字机效果
               onComplete={handleTypingComplete}
               onSkip={handleSkip}
               className="h-[600px]" // 固定高度600px，更大的显示区域
+              realTime={!!streamingContent} // 实时显示模式
             />
           </div>
           

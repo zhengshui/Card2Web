@@ -20,7 +20,8 @@ export default function Home() {
   const { 
     isGenerating, 
     error: generateError, 
-    generatedWebsite, 
+    generatedWebsite,
+    streamingContent,
     generateWebsite 
   } = useWebsiteGenerator()
 
@@ -49,7 +50,14 @@ export default function Home() {
     
     setStep(4)
     setShowAnimation(false)
-    await generateWebsite(cardWithStyle)
+    
+    // 滚动到顶部
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+    
+    await generateWebsite(cardWithStyle, (content) => {
+      // 实时更新流式内容
+      setShowAnimation(true)
+    })
     
     // 网站生成完成后启动动画
     if (!generateError) {
@@ -61,11 +69,13 @@ export default function Home() {
     setShowAnimation(false)
     if (!generateError && generatedWebsite) {
       setStep(5)
+      // 滚动到顶部
+      window.scrollTo({ top: 0, behavior: 'smooth' })
     }
   }
 
   return (
-    <main className="min-h-screen bg-gradient-to-br from-neutral-50 via-primary-50/30 to-neutral-100 relative overflow-hidden">
+    <main className={`${step >= 4 ? 'h-screen' : 'min-h-screen'} bg-gradient-to-br from-neutral-50 via-primary-50/30 to-neutral-100 relative overflow-hidden`}>
       {/* 背景装饰 */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="absolute top-1/4 -left-32 w-96 h-96 bg-primary-100/20 rounded-full blur-3xl"></div>
@@ -92,8 +102,8 @@ export default function Home() {
         </nav>
 
         {/* 主内容区域 */}
-        <div className="py-12 px-6">
-          <div className="max-w-5xl mx-auto">
+        <div className={`${step >= 4 ? 'h-full flex flex-col' : 'py-12'} px-6`}>
+          <div className={`${step >= 4 ? 'flex-1 flex flex-col justify-center' : ''} max-w-5xl mx-auto`}>
             {/* 页面标题区域 */}
             <div className="text-center mb-16 animate-fade-in">
               <div className="inline-flex items-center space-x-2 px-4 py-2 bg-primary-50 border border-primary-100 rounded-full text-primary-700 text-sm font-medium mb-6">
@@ -439,9 +449,10 @@ export default function Home() {
               <h2 className="text-2xl font-semibold text-gray-800 mb-6 text-center">
                 第四步：生成企业官网
               </h2>
-              {showAnimation && generatedWebsite ? (
+              {showAnimation ? (
                 <WebsiteGenerationAnimation
-                  htmlContent={generatedWebsite.html}
+                  htmlContent={generatedWebsite?.html || ''}
+                  streamingContent={streamingContent}
                   isGenerating={isGenerating}
                   onAnimationComplete={handleAnimationComplete}
                 />

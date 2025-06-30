@@ -22,7 +22,10 @@ export class WebsiteGenerator {
   /**
    * 根据名片信息生成企业官网
    */
-  async generateWebsite(businessCard: Partial<BusinessCard>): Promise<GeneratedWebsite> {
+  async generateWebsite(
+    businessCard: Partial<BusinessCard>, 
+    onUpdate?: (partialContent: string) => void
+  ): Promise<GeneratedWebsite> {
     const openai = this.initializeOpenAI()
     
     const prompt = this.buildPrompt(businessCard)
@@ -42,10 +45,21 @@ export class WebsiteGenerator {
         ],
         temperature: 0.7,
         max_tokens: 4000, // 增加token限制以支持更丰富内容
-        stream: false // 暂时保持false，因为需要完整内容来解析
+        stream: true
       })
 
-      const response = completion.choices[0]?.message?.content
+      let response = ''
+      for await (const chunk of completion) {
+        const content = chunk.choices[0]?.delta?.content || ''
+        if (content) {
+          response += content
+          // 实时回调部分内容
+          if (onUpdate) {
+            onUpdate(response)
+          }
+        }
+      }
+
       if (!response) {
         throw new Error('AI 响应为空')
       }
